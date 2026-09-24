@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Support Routing Agent | LangGraph Intelligence</title>
+    <meta name="description" content="AI Customer Support Routing Agent powered by LangGraph. Classifies intent, extracts entities, and drafts tailored responses based on user input.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark-theme">
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <!-- App Layout -->
+    <div class="app-layout">
+        <!-- Top Navigation Header -->
+        <header class="app-header">
+            <div class="header-brand">
+                <div class="brand-logo-glow">
+                    <i class="fa-solid fa-bolt-lightning"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>SupportFlow <span class="badge-ai">Routing Agent</span></h1>
+                    <p class="subtitle">Intent Classification, Conditional Policy Routing & Resolution Drafting</p>
+                </div>
+            </div>
+
+            <!-- Global Controls & Settings -->
+            <div class="header-actions">
+                <div class="status-indicator">
+                    <span class="status-dot"></span>
+                    <span class="status-label" id="agent-status-label">Agent Ready</span>
+                </div>
+
+                <div class="config-pill" id="api-config-trigger" title="Configure Gemini API Key">
+                    <i class="fa-solid fa-key text-accent"></i>
+                    <span id="active-model-tag">gemini-3.6-flash</span>
+                    <span class="key-badge" id="key-status-badge">Active</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <div class="triage-grid">
+                
+                <!-- Left Column: User Input Form -->
+                <div class="triage-card input-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fa-solid fa-envelope-open-text text-primary"></i>
+                            <h2>Customer Support Ticket Input</h2>
+                        </div>
+                    </div>
+
+                    <!-- Custom Ticket Form (No placeholders or pre-filled values) -->
+                    <form id="ticket-form" class="ticket-form" onsubmit="event.preventDefault();">
+                        <div class="form-row">
+                            <div class="form-group flex-1">
+                                <label for="input-customer-name">Customer Name</label>
+                                <input type="text" id="input-customer-name" class="form-control" autocomplete="off">
+                            </div>
+                            <div class="form-group flex-1">
+                                <label for="input-customer-email">Email Address</label>
+                                <input type="email" id="input-customer-email" class="form-control" autocomplete="off">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group flex-1">
+                                <label for="input-customer-tier">Customer Plan / Tier</label>
+                                <select id="input-customer-tier" class="form-control custom-select">
+                                    <option value="Free">Free Tier</option>
+                                    <option value="Pro" selected>Pro Tier</option>
+                                    <option value="Enterprise">Enterprise Tier</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="input-subject">Subject</label>
+                            <input type="text" id="input-subject" class="form-control" autocomplete="off">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="input-body">Email Message / Ticket Body</label>
+                            <textarea id="input-body" class="form-control text-area" rows="8"></textarea>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn-primary btn-glow" id="btn-run-triage">
+                                <i class="fa-solid fa-play"></i>
+                                <span>Route & Draft Response</span>
+                            </button>
+                            <button type="button" class="btn-secondary" id="btn-clear-ticket">
+                                <i class="fa-solid fa-rotate-left"></i>
+                                <span>Clear</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Right Column: Routing Intelligence & Output Hub -->
+                <div class="triage-card output-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fa-solid fa-sparkles text-warning"></i>
+                            <h2>Routing Intelligence & Drafted Response</h2>
+                        </div>
+                        <div class="engine-badge" id="engine-source-badge">
+                            <i class="fa-solid fa-microchip"></i>
+                            <span>Gemini 3.6</span>
+                        </div>
+                    </div>
+
+                    <!-- Initial Empty State -->
+                    <div id="empty-state-view" class="empty-state-container">
+                        <div class="empty-state-icon">
+                            <i class="fa-solid fa-inbox"></i>
+                        </div>
+                        <h3>Awaiting Customer Input</h3>
+                        <p>Fill in the customer email or billing request on the left and click <strong>"Route & Draft Response"</strong> to analyze intent, extract entities, apply corporate policies, and generate the resolution draft.</p>
+                    </div>
+
+                    <!-- Populated Results Container (Hidden until submitted) -->
+                    <div id="results-view" class="results-container" style="display: none;">
+                        <!-- Classification Badges Matrix -->
+                        <div class="classification-panel">
+                            <div class="meta-row">
+                                <div class="meta-item">
+                                    <span class="meta-label">Routed Department</span>
+                                    <div class="category-badge" id="res-category">
+                                        <i class="fa-solid fa-receipt"></i>
+                                        <span id="res-category-text">Billing</span>
+                                    </div>
+                                </div>
+
+                                <div class="meta-item">
+                                    <span class="meta-label">Confidence</span>
+                                    <div class="confidence-pill" id="res-confidence">
+                                        <div class="confidence-bar-fill" id="res-confidence-bar" style="width: 95%;"></div>
+                                        <span id="res-confidence-text">95%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="meta-row mt-2">
+                                <div class="meta-item">
+                                    <span class="meta-label">Urgency & SLA</span>
+                                    <span class="urgency-pill urgency-medium" id="res-urgency">Medium</span>
+                                </div>
+
+                                <div class="meta-item">
+                                    <span class="meta-label">Sentiment</span>
+                                    <span class="sentiment-pill sentiment-neutral" id="res-sentiment">Neutral</span>
+                                </div>
+                            </div>
+
+                            <!-- Extracted Entities Container -->
+                            <div class="entities-section mt-3">
+                                <span class="meta-label">Extracted Entities:</span>
+                                <div class="entities-tags" id="res-entities"></div>
+                            </div>
+
+                            <!-- Routing Reasoning -->
+                            <div class="reasoning-box mt-2">
+                                <span class="reasoning-title"><i class="fa-solid fa-brain"></i> Agent Routing Reasoning:</span>
+                                <p class="reasoning-text" id="res-reasoning"></p>
+                            </div>
+                        </div>
+
+                        <!-- Injected Policies Accordion -->
+                        <details class="policy-accordion mt-3" id="policy-accordion">
+                            <summary class="accordion-summary">
+                                <i class="fa-solid fa-shield-halved text-primary"></i>
+                                <span>Applied Department Policies (<span id="policies-count">0</span> Rules)</span>
+                                <i class="fa-solid fa-chevron-down toggle-icon"></i>
+                            </summary>
+                            <div class="accordion-body" id="policies-list-container">
+                                <ul class="policy-bullets" id="injected-policies-ul"></ul>
+                            </div>
+                        </details>
+
+                        <!-- Generated Draft Resolution -->
+                        <div class="draft-section mt-3">
+                            <div class="draft-header">
+                                <label class="section-label"><i class="fa-solid fa-pen-fancy"></i> AI-Drafted Customer Response:</label>
+                                <button type="button" class="btn-ghost-sm" id="btn-copy-draft" title="Copy response to clipboard">
+                                    <i class="fa-regular fa-copy"></i>
+                                    <span>Copy</span>
+                                </button>
+                            </div>
+                            <textarea id="res-draft-textarea" class="form-control draft-textarea" rows="7"></textarea>
+                        </div>
+
+                        <!-- 1-Click Action Buttons -->
+                        <div class="action-buttons-section mt-3">
+                            <label class="section-label"><i class="fa-solid fa-hand-pointer"></i> 1-Click Operational Actions:</label>
+                            <div class="action-buttons-grid" id="action-buttons-container"></div>
+                        </div>
+
+                        <!-- Footer Actions -->
+                        <div class="output-footer mt-3">
+                            <button type="button" class="btn-primary" id="btn-approve-send">
+                                <i class="fa-solid fa-paper-plane"></i>
+                                <span>Approve & Dispatch Response</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- API Config Modal -->
+    <div id="api-modal" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-sliders text-primary"></i> Agent API Configuration</h3>
+                <button type="button" class="btn-close-modal" id="btn-close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-desc">Configure your Google Gemini API key and model name for intent routing and response generation.</p>
+                <div class="form-group mt-3">
+                    <label for="modal-api-key">Gemini API Key</label>
+                    <div class="input-with-icon">
+                        <input type="password" id="modal-api-key" class="form-control">
+                        <button type="button" class="btn-toggle-pwd" id="btn-toggle-pwd"><i class="fa-regular fa-eye"></i></button>
+                    </div>
+                    <small class="form-hint">Changes take effect immediately.</small>
+                </div>
+
+                <div class="form-group mt-3">
+                    <label for="modal-model-select">Gemini Model</label>
+                    <select id="modal-model-select" class="form-control custom-select">
+                        <option value="gemini-3.6-flash" selected>gemini-3.6-flash</option>
+                        <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" id="btn-cancel-modal">Cancel</button>
+                <button type="button" class="btn-primary" id="btn-save-modal">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main JavaScript Logic -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
